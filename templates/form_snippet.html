@@ -1,0 +1,12 @@
+{% for field in form %}
+
+	<div class="contactfield"><label for="name">{{ field.label_tag }}</label>
+<div class="clear"></div>
+	{{ field }} {% if field.help_text %}{{ field.help_text }}{% endif %}
+<div class="clear"></div>
+	</div>
+<div class="clear"></div>
+{% if field.errors %}{{ field.errors }}{% endif %}
+
+<div class="clear"></div>
+{% endfor %}

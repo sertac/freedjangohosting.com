@@ -1,0 +1,247 @@
+{% load disqus_tags %}
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" >
+<head>
+	<title>Free Django Hosting.</title>
+	<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+	<meta name="description" content="Free Django Hosting." />
+	<meta name="keywords" content="Free Django Hosting." />
+	<meta name="robots" content="index, follow" />
+        <meta name="google-site-verification" content="i5mNefZhu-WmEP1hosmGxpykUCb7DZ8GYir89ujVxRg" />
+       <meta name="msvalidate.01" content="6B567E5786398855F516D4E0188B2D44" />
+	<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+    <style media="screen" type="text/css">
+    /* <!-- */
+    /* General styles */
+    body {
+        margin:0;
+        padding:0;
+        border:0;			/* This removes the border around the viewport in old versions of IE */
+        width:100%;
+        background:#fff;
+        min-width:600px;    /* Minimum width of layout - remove line if not required */
+							/* The min-width property does not work in old versions of Internet Explorer */
+		font-size:90%;
+    }
+	a {
+    	color:#369;
+	}
+	a:hover {
+		color:#fff;
+		background:#369;
+		text-decoration:none;
+	}
+    h1, h2, h3 {
+        margin:.8em 0 .2em 0;
+        padding:0;
+    }
+    p {
+        margin:.4em 0 .8em 0;
+        padding:0;
+    }
+	img {
+		margin:10px 0 5px;
+	}
+	/* Header styles */
+    #header {
+        clear:both;
+        float:left;
+        width:100%;
+    }
+	#header {
+		border-bottom:1px solid #000;
+	}
+	#header p,
+	#header h1,
+	#header h2 {
+	    padding:.4em 15px 0 15px;
+        margin:0;
+	}
+	#header ul {
+	    clear:left;
+	    float:left;
+	    width:100%;
+	    list-style:none;
+	    margin:10px 0 0 0;
+	    padding:0;
+	}
+	#header ul li {
+	    display:inline;
+	    list-style:none;
+	    margin:0;
+	    padding:0;
+	}
+	#header ul li a {
+	    display:block;
+	    float:left;
+	    margin:0 0 0 1px;
+	    padding:3px 10px;
+	    text-align:center;
+	    background:#eee;
+	    color:#000;
+	    text-decoration:none;
+	    position:relative;
+	    left:15px;
+		line-height:1.3em;
+	}
+	#header ul li a:hover {
+	    background:#369;
+		color:#fff;
+	}
+	#header ul li a.active,
+	#header ul li a.active:hover {
+	    color:#fff;
+	    background:#000;
+	    font-weight:bold;
+	}
+	#header ul li a span {
+	    display:block;
+	}
+	/* 'widths' sub menu */
+	#layoutdims {
+		clear:both;
+		background:#eee;
+		border-top:4px solid #000;
+		margin:0;
+		padding:6px 15px !important;
+		text-align:right;
+	}
+	/* column container */
+	.colmask {
+		position:relative;		/* This fixes the IE7 overflow hidden bug and stops the layout jumping out of place */
+	    clear:both;
+	    float:left;
+        width:100%;			/* width of whole page */
+		overflow:hidden;	/* This chops off any overhanging divs */
+	}
+	/* 1 column full page settings */
+	.fullpage {
+	    background:#fff;
+	}
+	.fullpage .col1 {
+        margin:0 15px;
+	}
+	/* Footer styles */
+	#footer {
+        clear:both;
+        float:left;
+        width:100%;
+		border-top:1px solid #000;
+    }
+    #footer p {
+        padding:10px;
+        margin:0;
+    }
+    /* --> */
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <h1><a href="/">Free Django Hosting</a></h1>
+    <h2>Free Python Django Web Hosts List</h2>
+    <h2>Best Django Web Hosting</h2>
+
+        <ul>
+		<li><a href="{% url suggest_hosting %}">Suggest a New Django Hosting ! </a></li>
+	</ul>
+	<p id="layoutdims">
+<script type="text/javascript"><!--
+google_ad_client = "pub-6895353924362273";
+/* 728x90, oluþturulma 16.10.2011 */
+google_ad_slot = "9057895866";
+google_ad_width = 728;
+google_ad_height = 90;
+//-->
+</script>
+<script type="text/javascript"
+src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+</script>
+
+
+</p>
+</div>
+<div class="colmask fullpage">
+    <div class="col1">
+        <!-- Column 1 start -->
+        <h2Free Django Hosting</h2>
+<h2>
+ {% if messages %}
+<ul class="messages">
+    {% for message in messages %}
+    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+</h2>                
+{% disqus_show_comments %}
+
+
+<p>
+
+
+
+<script type="text/javascript"><!--
+google_ad_client = "pub-6895353924362273";
+/* 300x250, oluþturulma 19.10.2011 */
+google_ad_slot = "0666408423";
+google_ad_width = 300;
+google_ad_height = 250;
+//-->
+</script>
+<script type="text/javascript"
+src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
+</script>
+
+</p>
+
+
+
+
+                 {% for host in hosts %}
+                 <h2>
+                 {{host.name}}
+                 {% if  host.logo %}
+                 <img src="/site_media/{{host.logo}}" title="{{host}}" alt="{{host}}" width="254" height="62"/>
+                 {% endif %}
+                 </h2>
+                 <ul>
+                        <h3>{{ host.num_of_users}}</h3> people clicked i use this button for this hosting
+                        <li><a href="{% url iusethis host.id %}">
+                i use this
+                 </a><img src="/site_media/icons/thumb_up.png" width="16" height="16" alt="i use this django hosting" title="i use this hosting"/></li>
+                        <li>{{host.type|lower|capfirst}}</li>
+                        <li>{{host.description|safe}}</li>
+                        <li><a href="{{host.website}}" target="_blank" title="{{host.name}}">{{host.website}}</a></li>
+                        <li><a href="{% url feedback host.id %}" title="write feedback about {{host.name}}">Write Feedback </a>
+                        <img src="/site_media/icons/comment_add.png" width="16" height="16" alt="send feedback about {{host}}" title="send feedback about django host {{host}}"/></li>
+                 </ul>
+                 {% endfor %}
+
+        <!-- Column 1 end -->
+    </div>
+</div>
+<div id="footer">
+    <p>Free Django Hosting.2011</p>
+</div>
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-775425-12']);
+  _gaq.push(['_setDomainName', '.freedjangohosting.com']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+<a href="http://www.onewaytextlink.com">Web Directories</a>
+
+</body>
+</html>

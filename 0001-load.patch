@@ -1,0 +1,2040 @@
+From 1ce60137104d63340eadc9f6d3f053e2e2a77be3 Mon Sep 17 00:00:00 2001
+From: "prof.math" <prof.math@gmail.com>
+Date: Sun, 6 Nov 2011 09:14:29 -0800
+Subject: [PATCH] load
+
+---
+ app/admin.py                                  |    7 +
+ app/forms.py                                  |   14 ++
+ app/models.py                                 |   53 ++++++
+ app/tests.py                                  |   16 ++
+ app/views.py                                  |   66 +++++++
+ disqus/__init__.py                            |   25 +++
+ disqus/api.py                                 |   86 +++++++++
+ disqus/management/__init__.pyc                |  Bin 0 -> 158 bytes
+ disqus/management/commands/disqus_dumpdata.py |   57 ++++++
+ disqus/management/commands/disqus_export.py   |  133 +++++++++++++
+ disqus/templates/disqus/num_replies.html      |   13 ++
+ disqus/templates/disqus/recent_comments.html  |   10 +
+ disqus/templates/disqus/show_comments.html    |   16 ++
+ disqus/templatetags/__init__.pyc              |  Bin 0 -> 155 bytes
+ disqus/templatetags/disqus_tags.py            |  126 +++++++++++++
+ disqus/templatetags/disqus_tags.pyc           |  Bin 0 -> 5209 bytes
+ disqus/tests.py                               |   28 +++
+ disqus/wxr_feed.py                            |  224 ++++++++++++++++++++++
+ manage.py                                     |   14 ++
+ settings.py                                   |  163 ++++++++++++++++
+ templates/app/feedback.html                   |  197 ++++++++++++++++++++
+ templates/app/index.html                      |  247 +++++++++++++++++++++++++
+ templates/app/suggest_hosting.html            |  195 +++++++++++++++++++
+ templates/form_snippet.html                   |   12 ++
+ templates/robots.txt                          |    2 +
+ urls.py                                       |   28 +++
+ 26 files changed, 1732 insertions(+), 0 deletions(-)
+ delete mode 100644 README
+ create mode 100644 __init__.py
+ create mode 100644 app/__init__.py
+ create mode 100644 app/admin.py
+ create mode 100644 app/forms.py
+ create mode 100644 app/models.py
+ create mode 100644 app/tests.py
+ create mode 100644 app/views.py
+ create mode 100644 disqus/__init__.py
+ create mode 100644 disqus/api.py
+ create mode 100644 disqus/management/__init__.py
+ create mode 100644 disqus/management/__init__.pyc
+ create mode 100644 disqus/management/commands/__init__.py
+ create mode 100644 disqus/management/commands/disqus_dumpdata.py
+ create mode 100644 disqus/management/commands/disqus_export.py
+ create mode 100644 disqus/models.py
+ create mode 100644 disqus/templates/disqus/num_replies.html
+ create mode 100644 disqus/templates/disqus/recent_comments.html
+ create mode 100644 disqus/templates/disqus/show_comments.html
+ create mode 100644 disqus/templatetags/__init__.py
+ create mode 100644 disqus/templatetags/__init__.pyc
+ create mode 100644 disqus/templatetags/disqus_tags.py
+ create mode 100644 disqus/templatetags/disqus_tags.pyc
+ create mode 100644 disqus/tests.py
+ create mode 100644 disqus/wxr_feed.py
+ create mode 100644 manage.py
+ create mode 100644 settings.py
+ create mode 100644 templates/app/feedback.html
+ create mode 100644 templates/app/index.html
+ create mode 100644 templates/app/suggest_hosting.html
+ create mode 100644 templates/form_snippet.html
+ create mode 100644 templates/robots.txt
+ create mode 100644 urls.py
+
+diff --git a/README b/README
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/__init__.py b/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/app/__init__.py b/app/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/app/admin.py b/app/admin.py
+new file mode 100644
+index 0000000..af04d73
+--- /dev/null
++++ b/app/admin.py
+@@ -0,0 +1,7 @@
++from django.contrib import admin
++from models import Hosting
++
++class HostingAdmin(admin.ModelAdmin):
++    list_display = ('name','description','add_date','update_date',)
++
++admin.site.register(Hosting,HostingAdmin)
+diff --git a/app/forms.py b/app/forms.py
+new file mode 100644
+index 0000000..228da26
+--- /dev/null
++++ b/app/forms.py
+@@ -0,0 +1,14 @@
++from django import forms
++from django.forms import ModelForm
++from app.models import Hosting,Feedback
++
++class SuggestHostingForm(ModelForm):
++   class Meta:
++        model=Hosting
++        exclude=('status','logo','num_of_users',)
++
++
++class FeedbackForm(ModelForm):
++   class Meta:
++        model=Feedback
++        exclude=('ip','hosting',)
+diff --git a/app/models.py b/app/models.py
+new file mode 100644
+index 0000000..20bac79
+--- /dev/null
++++ b/app/models.py
+@@ -0,0 +1,53 @@
++from django.db import models
++from django.template.defaultfilters import slugify
++# Create your models here.
++
++
++STATUS = (
++    ('DRAFT', 'DRAFT'),
++    ('PUBLISHED', 'PUBLISHED'),
++)
++
++
++TYPE = (
++    ('FREE', 'FREE'),
++    ('PAID', 'PAID'),
++)
++
++
++class Hosting(models.Model):
++   name = models.CharField(max_length=100)
++   website = models.URLField(verify_exists=True,blank=True,null=True)
++   description=models.TextField(blank=True,null=True)
++   status=models.CharField(max_length=15,choices=STATUS,default='DRAFT')
++   type=models.CharField(max_length=15,choices=TYPE,default='PAID')
++   logo=models.ImageField(upload_to='uploads/logo',blank=True,null=True)
++   num_of_users= models.PositiveSmallIntegerField(default=0)
++   add_date=models.DateTimeField(auto_now_add=True,editable=False)
++   update_date=models.DateTimeField(auto_now=True,auto_now_add=True,editable=False)
++   
++   class Meta:
++     ordering = ["-num_of_users"]
++
++   def __unicode__(self):
++      return u'%s' % (self.name)
++   
++   def get_absolute_url(self):
++      return '/%s' % slugify(self.name)
++
++class Vote(models.Model):
++    hosting=models.ForeignKey(Hosting)   
++    ip=models.IPAddressField()
++    add_date=models.DateTimeField(auto_now_add=True,editable=False)
++
++class Feedback(models.Model):
++    hosting=models.ForeignKey(Hosting)   
++    name = models.CharField(max_length=100,blank=True,null=True)
++    email=models.EmailField(blank=True,null=True)
++    comment=models.TextField()
++    ip=models.IPAddressField()
++    add_date=models.DateTimeField(auto_now_add=True,editable=False)
++
++    def __unicode__(self):
++      return u'%s' % (self.comment)
++
+diff --git a/app/tests.py b/app/tests.py
+new file mode 100644
+index 0000000..501deb7
+--- /dev/null
++++ b/app/tests.py
+@@ -0,0 +1,16 @@
++"""
++This file demonstrates writing tests using the unittest module. These will pass
++when you run "manage.py test".
++
++Replace this with more appropriate tests for your application.
++"""
++
++from django.test import TestCase
++
++
++class SimpleTest(TestCase):
++    def test_basic_addition(self):
++        """
++        Tests that 1 + 1 always equals 2.
++        """
++        self.assertEqual(1 + 1, 2)
+diff --git a/app/views.py b/app/views.py
+new file mode 100644
+index 0000000..d464116
+--- /dev/null
++++ b/app/views.py
+@@ -0,0 +1,66 @@
++# Create your views here.
++
++from django.shortcuts import render_to_response,get_object_or_404
++from django.template import RequestContext
++from app.models import Hosting,Vote
++from django.http import HttpResponseRedirect
++from app.forms import FeedbackForm,SuggestHostingForm
++from django.contrib import messages
++
++def index(request):
++  hosts=Hosting.objects.filter(status='PUBLISHED')
++  return render_to_response('app/index.html',context_instance=RequestContext(request,{'hosts': hosts,}))
++
++
++def get_client_ip(request):
++    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
++    if x_forwarded_for:
++        ip = x_forwarded_for.split(',')[0]
++    else:
++        ip = request.META.get('REMOTE_ADDR')
++    return ip
++
++def iusethis(request,host_id):
++  h=get_object_or_404(Hosting,id=host_id) 
++  h.num_of_users=h.num_of_users + 1
++  h.save()
++  Vote(hosting_id=host_id,ip=get_client_ip(request)).save()
++  messages.add_message(request, messages.INFO, 'Thank you.Your vote is counted !')
++  return HttpResponseRedirect('/')
++
++
++def feedback(request,host_id):
++    host=get_object_or_404(Hosting,id=host_id)
++    if request.method == "POST":
++         form = FeedbackForm(data=request.POST)
++         if form.is_valid():
++              j=form.save(commit=False)
++              j.hosting=host
++              j.ip=get_client_ip(request)
++              j.email=form.cleaned_data['email']
++              j.name=form.cleaned_data['name']
++              j.comment=form.cleaned_data['comment']
++              j.save()
++              messages.add_message(request, messages.INFO, 'Thank you.Your feedback is sent !')
++              return HttpResponseRedirect('/')
++    else:
++         form = FeedbackForm()
++    return render_to_response('app/feedback.html', context_instance=RequestContext(request, {'form': form,'host':host}))
++
++
++def suggest_hosting(request):
++    if request.method == "POST":
++         form = SuggestHostingForm(data=request.POST)
++         if form.is_valid():
++              j=form.save(commit=False)
++              j.name=form.cleaned_data['name']
++              j.website=form.cleaned_data['website']
++              j.description=form.cleaned_data['description']
++              j.type=form.cleaned_data['type']
++              j.save()
++              messages.add_message(request, messages.INFO, 'Thank you.Your suggestion is sent !')
++              return HttpResponseRedirect('/')
++    else:
++         form = SuggestHostingForm()
++    return render_to_response('app/suggest_hosting.html', context_instance=RequestContext(request, {'form': form,}))
++
+diff --git a/disqus/__init__.py b/disqus/__init__.py
+new file mode 100644
+index 0000000..c3f52c8
+--- /dev/null
++++ b/disqus/__init__.py
+@@ -0,0 +1,25 @@
++import urllib
++import urllib2
++
++from django.core.management.base import CommandError
++from django.utils import simplejson as json
++from django.conf import settings
++
++def call(method, data, post=False):
++    """
++    Calls `method` from the DISQUS API with data either in POST or GET.
++    Returns deserialized JSON response.
++    """
++    url = "%s%s" % ('http://disqus.com/api/', method)
++    if post:
++        # POST request
++        url += "/"
++        data = urllib.urlencode(data)
++    else:
++        # GET request
++        url += "?%s" % urllib.urlencode(data)
++        data = ''
++    res = json.load(urllib2.urlopen(url, data))
++    if not res['succeeded']:
++        raise CommandError("'%s' failed: %s\nData: %s" % (method, res['code'], data))
++    return res['message']
+diff --git a/disqus/api.py b/disqus/api.py
+new file mode 100644
+index 0000000..a0f0d58
+--- /dev/null
++++ b/disqus/api.py
+@@ -0,0 +1,86 @@
++from urllib import urlencode
++import urllib2
++
++from django.utils import simplejson as json
++
++# A custom ProxyHandler for the urllib2 module that will not
++# auto-detect proxy settings
++proxy_support = urllib2.ProxyHandler({})
++opener = urllib2.build_opener(proxy_support)
++urllib2.install_opener(opener)
++
++class DisqusException(Exception):
++    """Exception raised for errors with the DISQUS API."""
++    pass
++
++class DisqusClient(object):
++    """
++    Client for the DISQUS API.
++
++    Example:
++        >>> client = DisqusClient()
++        >>> json = client.get_forum_list(user_api_key=DISQUS_API_KEY)
++    """
++    METHODS = {
++        'create_post': 'POST',
++        'get_forum_api_key': 'GET',
++        'get_forum_list': 'GET',
++        'get_forum_posts': 'GET',
++        'get_num_posts': 'GET',
++        'get_thread_by_url': 'GET',
++        'get_thread_list': 'GET',
++        'get_thread_posts': 'GET',
++        'get_updated_threads': 'GET',
++        'get_user_name': 'POST',
++        'moderate_post': 'POST',
++        'thread_by_identifier': 'POST',
++        'update_thread': 'POST',
++    }
++
++    def __init__(self, **kwargs):
++        self.api_url = 'http://disqus.com/api/%s/?api_version=1.1'
++        self.__dict__.update(kwargs)
++
++    def __getattr__(self, attr):
++        """
++        Called when an attribute is not found in the usual places
++        (__dict__, class tree) this method will check if the attribute
++        name is a DISQUS API method and call the `call` method.
++        If it isn't in the METHODS dict, it will raise an AttributeError.
++        """
++        if attr in self.METHODS:
++            def call_method(**kwargs):
++                return self.call(attr, **kwargs)
++            return call_method
++        raise AttributeError
++
++    def _get_request(self, request_url, request_method, **params):
++        """
++        Return a urllib2.Request object that has the GET parameters
++        attached to the url or the POST data attached to the object.
++        """
++        if request_method == 'GET':
++            if params:
++                request_url += '&%s' % urlencode(params)
++            request = urllib2.Request(request_url)
++        elif request_method == 'POST':
++            request = urllib2.Request(request_url, urlencode(params,doseq=1))
++        return request
++
++    def call(self, method, **params):
++        """
++        Call the DISQUS API and return the json response.
++        URLError is raised when the request failed.
++        DisqusException is raised when the query didn't succeed.
++        """
++        url = self.api_url % method
++        request = self._get_request(url, self.METHODS[method], **params)
++        try:
++            response = urllib2.urlopen(request)
++        except urllib2.URLError, e:
++            raise
++        else:
++            response_json = json.loads(response.read())
++            if not response_json['succeeded']:
++                raise DisqusException(response_json['message'])
++            return response_json['message']
+diff --git a/disqus/management/__init__.py b/disqus/management/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/disqus/management/__init__.pyc b/disqus/management/__init__.pyc
+new file mode 100644
+index 0000000000000000000000000000000000000000..a0c7d3f34ba161c982896fd58052ccc34e789e39
+GIT binary patch
+literal 158
+zcmcckiI=NDaJpYI0~9a<X$K%KW&si@3=F{<AQ3+eAi;n}6uSe(^z+h+^)pIJ3QY71
+zDoZl*^Gb8|%gf94(~444Q?e5C((^O&i%T-|()Cj^iwjGO^>Y*R64O(2Q}asn<Kr{)
+cGE3s)^?*7#fM(g`=BJeAq}qXOECyl*04C@regFUf
+
+literal 0
+HcmV?d00001
+
+diff --git a/disqus/management/commands/__init__.py b/disqus/management/commands/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/disqus/management/commands/disqus_dumpdata.py b/disqus/management/commands/disqus_dumpdata.py
+new file mode 100644
+index 0000000..2fae41b
+--- /dev/null
++++ b/disqus/management/commands/disqus_dumpdata.py
+@@ -0,0 +1,57 @@
++from optparse import make_option
++
++from django.core.management.base import NoArgsCommand, CommandError
++from django.utils import simplejson as json
++
++from disqus.api import DisqusClient
++
++
++class Command(NoArgsCommand):
++    option_list = NoArgsCommand.option_list + (
++        make_option('--indent', default=None, dest='indent', type='int',
++            help='Specifies the indent level to use when pretty-printing output'),
++        make_option('--filter', default='', dest='filter', type='str',
++            help='Type of entries that should be returned'),
++        make_option('--exclude', default='', dest='exclude', type='str',
++            help='Type of entries that should be excluded from the response'),
++    )
++    help = 'Output DISQUS data in JSON format'
++    requires_model_validation = False
++
++    def handle(self, **options):
++        from django.conf import settings
++
++        client = DisqusClient()
++        indent = options.get('indent')
++        filter_ = options.get('filter')
++        exclude = options.get('exclude')
++
++        # Get a list of all forums for an API key. Each API key can have 
++        # multiple forums associated. This application only supports the one 
++        # set in the DISQUS_WEBSITE_SHORTNAME variable
++        forum_list = client.get_forum_list(user_api_key=settings.DISQUS_API_KEY)
++        try:
++            forum = [f for f in forum_list\
++                     if f['shortname'] == settings.DISQUS_WEBSITE_SHORTNAME][0]
++        except IndexError:
++            raise CommandError("Could not find forum. " +
++                               "Please check your " +
++                               "'DISQUS_WEBSITE_SHORTNAME' setting.")
++        posts = []
++        has_new_posts = True
++        start = 0
++        step = 100
++        while has_new_posts:
++            new_posts = client.get_forum_posts(
++                user_api_key=settings.DISQUS_API_KEY,
++                forum_id=forum['id'],
++                start=start,
++                limit=start+step,
++                filter=filter_,
++                exclude=exclude)
++            if not new_posts:
++                has_new_posts = False
++            else:
++                start += step
++                posts.append(new_posts)
++        print json.dumps(posts, indent=indent)
+diff --git a/disqus/management/commands/disqus_export.py b/disqus/management/commands/disqus_export.py
+new file mode 100644
+index 0000000..f7f3f4a
+--- /dev/null
++++ b/disqus/management/commands/disqus_export.py
+@@ -0,0 +1,133 @@
++from optparse import make_option
++import os.path
++
++from django.conf import settings
++from django.contrib import comments
++from django.contrib.sites.models import Site
++from django.core.management.base import NoArgsCommand
++from django.utils import simplejson as json
++
++from disqus.api import DisqusClient
++
++
++class Command(NoArgsCommand):
++    option_list = NoArgsCommand.option_list + (
++        make_option('-d', '--dry-run', action="store_true", dest="dry_run",
++                    help='Does not export any comments, but merely outputs' +
++                         'the comments which would have been exported.'),
++        make_option('-s', '--state-file', action="store", dest="state_file",
++                    help="Saves the state of the export in the given file " +
++                         "and auto-resumes from this file if possible."),
++    )
++    help = 'Export comments from contrib.comments to DISQUS'
++    requires_model_validation = False
++
++    def _get_comments_to_export(self, last_export_id=None):
++        """Return comments which should be exported."""
++        qs = comments.get_model().objects.order_by('pk')\
++                .filter(is_public=True, is_removed=False)
++        if last_export_id is not None:
++            print "Resuming after comment %s" % str(last_export_id)
++            qs = qs.filter(id__gt=last_export_id)
++        return qs
++
++    def _get_last_state(self, state_file):
++        """Checks the given path for the last exported comment's id"""
++        state = None
++        fp = open(state_file)
++        try:
++            state = int(fp.read())
++            print "Found previous state: %d" % (state,)
++        finally:
++            fp.close()
++        return state
++
++    def _save_state(self, state_file, last_pk):
++        """Saves the last_pk into the given state_file"""
++        fp = open(state_file, 'w+')
++        try:
++            fp.write(str(last_pk))
++        finally:
++            fp.close()
++
++    def handle(self, **options):
++        current_site = Site.objects.get_current()
++        client = DisqusClient()
++        verbosity = int(options.get('verbosity'))
++        dry_run = bool(options.get('dry_run'))
++        state_file = options.get('state_file')
++        last_exported_id = None
++
++        if state_file is not None and os.path.exists(state_file):
++            last_exported_id = self._get_last_state(state_file)
++
++        comments = self._get_comments_to_export(last_exported_id)
++        comments_count = comments.count()
++        if verbosity >= 1:
++            print "Exporting %d comment(s)" % comments_count
++
++        # if this is a dry run, we output the comments and exit
++        if dry_run:
++            print comments
++            return
++        # if no comments were found we also exit
++        if not comments_count:
++            return
++
++        # Get a list of all forums for an API key. Each API key can have 
++        # multiple forums associated. This application only supports the one 
++        # set in the DISQUS_WEBSITE_SHORTNAME variable
++        forum_list = client.get_forum_list(user_api_key=settings.DISQUS_API_KEY)
++        try:
++            forum = [f for f in forum_list\
++                     if f['shortname'] == settings.DISQUS_WEBSITE_SHORTNAME][0]
++        except IndexError:
++            raise CommandError("Could not find forum. " +
++                               "Please check your " +
++                               "'DISQUS_WEBSITE_SHORTNAME' setting.")
++
++        # Get the forum API key
++        forum_api_key = client.get_forum_api_key(
++            user_api_key=settings.DISQUS_API_KEY,
++            forum_id=forum['id'])
++
++        for comment in comments:
++            if verbosity >= 1:
++                print "Exporting comment '%s'" % comment
++
++            # Try to find a thread with the comments URL.
++            url = 'http://%s%s' % (
++                current_site.domain,
++                comment.content_object.get_absolute_url())
++            thread = client.get_thread_by_url(
++                url=url,
++                forum_api_key=forum_api_key)
++
++            # if no thread with the URL could be found, we create a new one.
++            # to do this, we first need to create the thread and then 
++            # update the thread with a URL.
++            if not thread:
++                thread = client.thread_by_identifier(
++                    forum_api_key=forum_api_key,
++                    identifier=unicode(comment.content_object),
++                    title=unicode(comment.content_object),
++                )['thread']
++                client.update_thread(
++                    forum_api_key=forum_api_key,
++                    thread_id=thread['id'],
++                    url=url)
++
++            # name and email are optional in contrib.comments but required
++            # in DISQUS. If they are not set, dummy values will be used
++            client.create_post(
++                forum_api_key=forum_api_key,
++                thread_id=thread['id'],
++                message=comment.comment.encode('utf-8'),
++                author_name=comment.userinfo.get('name',
++                                                 'nobody').encode('utf-8'),
++                author_email=comment.userinfo.get('email',
++                                                  'nobody@example.org'),
++                author_url=comment.userinfo.get('url', ''),
++                created_at=comment.submit_date.strftime('%Y-%m-%dT%H:%M'))
++            if state_file is not None:
++                self._save_state(state_file, comment.pk)
+diff --git a/disqus/models.py b/disqus/models.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/disqus/templates/disqus/num_replies.html b/disqus/templates/disqus/num_replies.html
+new file mode 100644
+index 0000000..ba287ca
+--- /dev/null
++++ b/disqus/templates/disqus/num_replies.html
+@@ -0,0 +1,13 @@
++<script type="text/javascript">
++{% block config_variables %}
++	var disqus_shortname = '{{ shortname }}';
++{{ config|safe }}
++{% endblock %}
++	/* * * DON'T EDIT BELOW THIS LINE * * */
++	(function () {
++		var s = document.createElement('script'); s.async = true;
++		s.type = 'text/javascript';
++		s.src = 'http://' + disqus_shortname + '.disqus.com/count.js';
++		(document.getElementsByTagName('HEAD')[0] || document.getElementsByTagName('BODY')[0]).appendChild(s);
++	}());
++</script>
+diff --git a/disqus/templates/disqus/recent_comments.html b/disqus/templates/disqus/recent_comments.html
+new file mode 100644
+index 0000000..0744ece
+--- /dev/null
++++ b/disqus/templates/disqus/recent_comments.html
+@@ -0,0 +1,10 @@
++<div id="dsq-recent-comments" class="dsq-widget">
++<script type="text/javascript">
++{% block config_variables %}
++	var disqus_shortname = '{{ shortname }}';
++{{ config|safe }}
++{% endblock %}
++</script>
++<script src='http://{{ shortname }}.disqus.com/recent_comments_widget.js?num_items={{ num_items }}&hide_avatars={{ hide_avatars }}&avatar_size={{ avatar_size }}&excerpt_length={{ excerpt_length }}'>
++</script>
++</div>
+diff --git a/disqus/templates/disqus/show_comments.html b/disqus/templates/disqus/show_comments.html
+new file mode 100644
+index 0000000..b71fa75
+--- /dev/null
++++ b/disqus/templates/disqus/show_comments.html
+@@ -0,0 +1,16 @@
++<div id="disqus_thread"></div>
++<script type="text/javascript">
++/* <![CDATA[ */
++{% block config_variables %}
++	var disqus_shortname = '{{ shortname }}';
++{{ config|safe}}
++{% endblock %}
++	/* * * DON'T EDIT BELOW THIS LINE * * */
++	(function() {
++		var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
++		dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
++		(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
++	})();
++</script>
++<noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
++<a href="http://disqus.com" class="dsq-brlink">blog comments powered by <span class="logo-disqus">Disqus</span></a>
+diff --git a/disqus/templatetags/__init__.py b/disqus/templatetags/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/disqus/templatetags/__init__.pyc b/disqus/templatetags/__init__.pyc
+new file mode 100644
+index 0000000000000000000000000000000000000000..1f512354662e148a66e7d6972af6c98ff875a7bc
+GIT binary patch
+literal 155
+zcmcckiI=NDaJpYI0~9a<X$K%KW&si@3=F{<AQ3+eAi;n}6uSV$^fU5vQ}qifOEU8F
+zN^|wg%ggoCic(WkvJ&&s^E2{`OEUA)^;0s73rmajOHy+SauQ2YOA^zI_2c6+^D;}~
+Z<Mn`gIe-S)<mRW8=A_zztSbg$1^~VRC8z)Z
+
+literal 0
+HcmV?d00001
+
+diff --git a/disqus/templatetags/disqus_tags.py b/disqus/templatetags/disqus_tags.py
+new file mode 100644
+index 0000000..45364dd
+--- /dev/null
++++ b/disqus/templatetags/disqus_tags.py
+@@ -0,0 +1,126 @@
++from django import template
++from django.conf import settings
++from django.contrib.sites.models import Site
++from django.utils.functional import curry
++from django.utils.encoding import force_unicode
++
++register = template.Library()
++
++class ContextSetterNode(template.Node):
++    def __init__(self, var_name, var_value):
++        self.var_name = var_name
++        self.var_value = var_value
++    
++    def _get_value(self, value, context):
++        """
++        Attempts to resolve the value as a variable. Failing that, it returns
++        its actual value
++        """
++        try:
++            var_value = template.Variable(value).resolve(context)
++        except template.VariableDoesNotExist:
++            var_value = self.var_value.var
++        return var_value
++    
++    def render(self, context):
++        if isinstance(self.var_value, (list, tuple)):
++            var_value = ''.join([force_unicode(self._get_value(x, context)) for x in self.var_value])
++        else:
++            var_value = self._get_value(self.var_value, context)
++        context[self.var_name] = var_value
++        return ''
++
++def generic_setter_compiler(var_name, name, node_class, parser, token):
++    """
++    Returns a ContextSetterNode.
++    
++    For calls like {% set_this_value "My Value" %}
++    """
++    bits = token.split_contents()
++    if(len(bits) < 2):
++        message = "%s takes at least one argument" % name
++        raise template.TemplateSyntaxError(message)
++    return node_class(var_name, bits[1:])
++
++# Set the disqus_developer variable to 0/1. Default is 0
++set_disqus_developer = curry(generic_setter_compiler, 'disqus_developer', 'set_disqus_developer', ContextSetterNode)
++
++# Set the disqus_identifier variable to some unique value. Defaults to page's URL
++set_disqus_identifier = curry(generic_setter_compiler, 'disqus_identifier', 'set_disqus_identifier', ContextSetterNode)
++
++# Set the disqus_url variable to some value. Defaults to page's location
++set_disqus_url = curry(generic_setter_compiler, 'disqus_url', 'set_disqus_url', ContextSetterNode)
++
++# Set the disqus_title variable to some value. Defaults to page's title or URL
++set_disqus_title = curry(generic_setter_compiler, 'disqus_title', 'set_disqus_title', ContextSetterNode)
++
++def get_config(context):
++    """
++    return the formatted javascript for any disqus config variables
++    """
++    conf_vars = ['disqus_developer', 'disqus_identifier', 'disqus_url', 'disqus_title']
++    
++    output = []
++    for item in conf_vars:
++        if item in context:
++            output.append('\tvar %s = "%s";' % (item, context[item]))
++    return '\n'.join(output)
++
++def disqus_dev():
++    """
++    Return the HTML/js code to enable DISQUS comments on a local
++    development server if settings.DEBUG is True.
++    """
++    if settings.DEBUG:
++        return """<script type="text/javascript">
++    var disqus_developer = 1;
++    var disqus_url = 'http://%s/';
++</script>""" % Site.objects.get_current().domain
++    return ""
++
++def disqus_num_replies(context, shortname=''):
++    """
++    Return the HTML/js code which transforms links that end with an
++    #disqus_thread anchor into the threads comment count.
++    """
++    shortname = getattr(settings, 'DISQUS_WEBSITE_SHORTNAME', shortname)
++    
++    return {
++        'shortname': shortname,
++        'config': get_config(context),
++    }
++
++def disqus_recent_comments(context, shortname='', num_items=5, excerpt_length=200, hide_avatars=0, avatar_size=32):
++    """
++    Return the HTML/js code which shows recent comments.
++
++    """
++    shortname = getattr(settings, 'DISQUS_WEBSITE_SHORTNAME', shortname)
++    
++    return {
++        'shortname': shortname,
++        'num_items': num_items,
++        'hide_avatars': hide_avatars,
++        'avatar_size': avatar_size,
++        'excerpt_length': excerpt_length,
++        'config': get_config(context),
++    }
++
++def disqus_show_comments(context, shortname=''):
++    """
++    Return the HTML code to display DISQUS comments.
++    """
++    shortname = getattr(settings, 'DISQUS_WEBSITE_SHORTNAME', shortname)
++    return {
++        'shortname': shortname,
++        'config': get_config(context),
++    }
++
++register.tag('set_disqus_developer', set_disqus_developer)
++register.tag('set_disqus_identifier', set_disqus_identifier)
++register.tag('set_disqus_url', set_disqus_url)
++register.tag('set_disqus_title', set_disqus_title)
++register.simple_tag(disqus_dev)
++register.inclusion_tag('disqus/num_replies.html', takes_context=True)(disqus_num_replies)
++register.inclusion_tag('disqus/recent_comments.html', takes_context=True)(disqus_recent_comments)
++register.inclusion_tag('disqus/show_comments.html', takes_context=True)(disqus_show_comments)
+diff --git a/disqus/templatetags/disqus_tags.pyc b/disqus/templatetags/disqus_tags.pyc
+new file mode 100644
+index 0000000000000000000000000000000000000000..0e11efa596b783ab74163688685500e31f169f78
+GIT binary patch
+literal 5209
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/disqus/tests.py b/disqus/tests.py
+new file mode 100644
+index 0000000..8f197ef
+--- /dev/null
++++ b/disqus/tests.py
+@@ -0,0 +1,28 @@
++from django.conf import settings
++from django.core.management.base import CommandError
++
++from disqus.api import DisqusClient
++
++__test__ = {'API_TESTS': """
++
++First, we test if the DisqusClient class can be initialized
++and parameters that were passed are set correctly.
++
++>>> c = DisqusClient(foo='bar', bar='foo')
++>>> c.foo
++'bar'
++>>> c.bar
++'foo'
++>>> c.baz
++Traceback (most recent call last):
++    ...
++AttributeError
++
++
++When a DISQUS API method is called, the call method should be used.
++
++>>> c.get_forum_list
++<function call_method at ...>
++""",
++}
++
+diff --git a/disqus/wxr_feed.py b/disqus/wxr_feed.py
+new file mode 100644
+index 0000000..87e7661
+--- /dev/null
++++ b/disqus/wxr_feed.py
+@@ -0,0 +1,224 @@
++import datetime
++
++from django import template
++from django.conf import settings
++from django.contrib.contenttypes.models import ContentType
++from django.contrib.sites.models import Site
++from django.contrib.syndication.views import Feed, add_domain
++from django.utils import feedgenerator, tzinfo
++from django.utils.encoding import force_unicode, iri_to_uri
++
++USE_SINGLE_SIGNON = getattr(settings, "DISQUS_USE_SINGLE_SIGNON", False)
++
++class WxrFeedType(feedgenerator.Rss201rev2Feed):
++    def rss_attributes(self):
++        return {
++            u"version": self._version,
++            u'xmlns:content': u"http://purl.org/rss/1.0/modules/content/",
++            u'xmlns:dsq': u"http://www.disqus.com/",
++            u'xmlns:dc': u"http://purl.org/dc/elements/1.1/",
++            u'xmlns:wp': u"http://wordpress.org/export/1.0/",
++        }
++    
++    def format_date(self, date):
++        return date.strftime('%Y-%m-%d %H:%M:%S')
++    
++    def add_item(self, title, link, description, author_email=None,
++        author_name=None, author_link=None, pubdate=None, comments=None,
++        unique_id=None, enclosure=None, categories=(), item_copyright=None,
++        ttl=None, **kwargs):
++        """
++        Adds an item to the feed. All args are expected to be Python Unicode
++        objects except pubdate, which is a datetime.datetime object, and
++        enclosure, which is an instance of the Enclosure class.
++        """
++        to_unicode = lambda s: force_unicode(s, strings_only=True)
++        if categories:
++            categories = [to_unicode(c) for c in categories]
++        if ttl is not None:
++            # Force ints to unicode
++            ttl = force_unicode(ttl)
++        item = {
++            'title': to_unicode(title),
++            'link': iri_to_uri(link),
++            'description': to_unicode(description),
++            'author_email': to_unicode(author_email),
++            'author_name': to_unicode(author_name),
++            'author_link': iri_to_uri(author_link),
++            'pubdate': pubdate,
++            'comments': comments,
++            'unique_id': to_unicode(unique_id),
++            'enclosure': enclosure,
++            'categories': categories or (),
++            'item_copyright': to_unicode(item_copyright),
++            'ttl': ttl,
++        }
++        item.update(kwargs)
++        self.items.append(item)
++    
++    def add_root_elements(self, handler):
++        pass
++    
++    def add_item_elements(self, handler, item):
++        if item['comments'] is None:
++            return
++        handler.addQuickElement(u"title", item['title'])
++        handler.addQuickElement(u"link", item['link'])
++        handler.addQuickElement(u"content:encoded", item['description'])
++        handler.addQuickElement(u'dsq:thread_identifier', item['unique_id'])
++        handler.addQuickElement(u'wp:post_date_gmt', 
++            self.format_date(item['pubdate']).decode('utf-8'))
++        handler.addQuickElement(u'wp:comment_status', item['comment_status'])
++        self.write_comments(handler, item['comments'])
++        
++    def add_comment_elements(self, handler, comment):
++        if USE_SINGLE_SIGNON:
++            handler.startElement(u"dsq:remote", {})
++            handler.addQuickElement(u"dsq:id", comment['user_id'])
++            handler.addQuickElement(u"dsq:avatar", comment['avatar'])
++            handler.endElement(u"dsq:remote")
++        handler.addQuickElement(u"wp:comment_id", comment['id'])
++        handler.addQuickElement(u"wp:comment_author", comment['user_name'])
++        handler.addQuickElement(u"wp:comment_author_email", comment['user_email'])
++        handler.addQuickElement(u"wp:comment_author_url", comment['user_url'])
++        handler.addQuickElement(u"wp:comment_author_IP", comment['ip_address'])
++        handler.addQuickElement(u"wp:comment_date_gmt", 
++            self.format_date(comment['submit_date']).decode('utf-8'))
++        handler.addQuickElement(u"wp:comment_content", comment['comment'])
++        handler.addQuickElement(u"wp:comment_approved", comment['is_approved'])
++        if comment['parent'] is not None:
++            handler.addQuickElement(u"wp:comment_parent", comment['parent'])
++    
++    def write_comments(self, handler, comments):
++        for comment in comments:
++            handler.startElement(u"wp:comment", {})
++            self.add_comment_elements(handler, comment)
++            handler.endElement(u"wp:comment")
++
++
++class BaseWxrFeed(Feed):
++    feed_type = WxrFeedType
++    
++    def get_feed(self, obj, request):
++        current_site = Site.objects.get_current()
++        
++        link = self._Feed__get_dynamic_attr('link', obj)
++        link = add_domain(current_site.domain, link)
++        feed = self.feed_type(
++            title = self._Feed__get_dynamic_attr('title', obj),
++            link = link,
++            description = self._Feed__get_dynamic_attr('description', obj),
++        )
++        
++        title_tmp = None
++        if self.title_template is not None:
++            try:
++                title_tmp = template.loader.get_template(self.title_template)
++            except template.TemplateDoesNotExist:
++                pass
++        
++        description_tmp = None
++        if self.description_template is not None:
++            try:
++                description_tmp = template.loader.get_template(self.description_template)
++            except template.TemplateDoesNotExist:
++                pass
++        
++        for item in self._Feed__get_dynamic_attr('items', obj):
++            if title_tmp is not None:
++                title = title_tmp.render(
++                    template.RequestContext(request, {
++                        'obj': item, 'site': current_site
++                    }))
++            else:
++                title = self._Feed__get_dynamic_attr('item_title', item)
++            if description_tmp is not None:
++                description = description_tmp.render(
++                    template.RequestContext(request, {
++                        'obj': item, 'site': current_site
++                    }))
++            else:
++                description = self._Feed__get_dynamic_attr('item_description', item)
++            link = add_domain(
++                current_site.domain,
++                self._Feed__get_dynamic_attr('item_link', item),
++            )
++            
++            pubdate = self._Feed__get_dynamic_attr('item_pubdate', item)
++            if pubdate and not hasattr(pubdate, 'tzinfo'):
++                ltz = tzinfo.LocalTimezone(pubdate)
++                pubdate = pubdate.replace(tzinfo=ltz)
++            
++            feed.add_item(
++                title = title,
++                link = link,
++                description = description,
++                unique_id = self._Feed__get_dynamic_attr('item_guid', item, link),
++                pubdate = pubdate,
++                comment_status = self._Feed__get_dynamic_attr('item_comment_status', item, 'open'),
++                comments = self._get_comments(item)
++            )
++        return feed
++    
++    def _get_comments(self, item):
++        cmts = self._Feed__get_dynamic_attr('item_comments', item)
++        output = []
++        for comment in cmts:
++            output.append({
++                'user_id': self._Feed__get_dynamic_attr('comment_user_id', comment),
++                'avatar': self._Feed__get_dynamic_attr('comment_avatar', comment),
++                'id': str(self._Feed__get_dynamic_attr('comment_id', comment)),
++                'user_name': self._Feed__get_dynamic_attr('comment_user_name', comment),
++                'user_email': self._Feed__get_dynamic_attr('comment_user_email', comment),
++                'user_url': self._Feed__get_dynamic_attr('comment_user_url', comment),
++                'ip_address': self._Feed__get_dynamic_attr('comment_ip_address', comment),
++                'submit_date': self._Feed__get_dynamic_attr('comment_submit_date', comment),
++                'comment': self._Feed__get_dynamic_attr('comment_comment', comment),
++                'is_approved': str(self._Feed__get_dynamic_attr('comment_is_approved', comment)),
++                'parent': str(self._Feed__get_dynamic_attr('comment_parent', comment)),
++            })
++        return output
++        
++
++class ContribCommentsWxrFeed(BaseWxrFeed):
++    link = "/"
++    
++    def item_comments(self, item):
++        from django.contrib.comments.models import Comment
++        
++        ctype = ContentType.objects.get_for_model(item)
++        return Comment.objects.filter(content_type=ctype, object_pk=item.pk)
++    
++    def item_guid(self, item):
++        ctype = ContentType.objects.get_for_model(item)
++        return "%s_%s" % (ctype.name, item.pk)
++    
++    def comment_id(self, comment):
++        return comment.pk
++    
++    def comment_user_id(self, comment):
++        return force_unicode(comment.user_id)
++    
++    def comment_user_name(self, comment):
++        return force_unicode(comment.user_name)
++    
++    def comment_user_email(self, comment):
++        return force_unicode(comment.user_email)
++    
++    def comment_user_url(self, comment):
++        return force_unicode(comment.user_url)
++    
++    def comment_ip_address(self, comment):
++        return force_unicode(comment.ip_address)
++    
++    def comment_submit_date(self, comment):
++        return comment.submit_date
++    
++    def comment_comment(self, comment):
++        return comment.comment
++    
++    def comment_is_approved(self, comment):
++        return int(comment.is_public)
++    
++    comment_parent = 0
++    
+\ No newline at end of file
+diff --git a/manage.py b/manage.py
+new file mode 100644
+index 0000000..3e4eedc
+--- /dev/null
++++ b/manage.py
+@@ -0,0 +1,14 @@
++#!/usr/bin/env python
++from django.core.management import execute_manager
++import imp
++try:
++    imp.find_module('settings') # Assumed to be in the same directory.
++except ImportError:
++    import sys
++    sys.stderr.write("Error: Can't find the file 'settings.py' in the directory containing %r. It appears you've customized things.\nYou'll have to run django-admin.py, passing it your settings module.\n" % __file__)
++    sys.exit(1)
++
++import settings
++
++if __name__ == "__main__":
++    execute_manager(settings)
+diff --git a/settings.py b/settings.py
+new file mode 100644
+index 0000000..01b081e
+--- /dev/null
++++ b/settings.py
+@@ -0,0 +1,163 @@
++# Django settings for freedjangohosting project.
++
++DEBUG = True
++TEMPLATE_DEBUG = DEBUG
++
++ADMINS = (
++    # ('Your Name', 'your_email@example.com'),
++)
++
++MANAGERS = ADMINS
++
++DATABASES = {
++    'default': {
++        'ENGINE': 'postgresql_psycopg2', # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
++        'NAME': 'freedjangohosting',                      # Or path to database file if using sqlite3.
++        'USER': '',                      # Not used with sqlite3.
++        'PASSWORD': '',                  # Not used with sqlite3.
++        'HOST': '',                      # Set to empty string for localhost. Not used with sqlite3.
++        'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
++    }
++}
++
++# Local time zone for this installation. Choices can be found here:
++# http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
++# although not all choices may be available on all operating systems.
++# On Unix systems, a value of None will cause Django to use the same
++# timezone as the operating system.
++# If running in a Windows environment this must be set to the same as your
++# system time zone.
++TIME_ZONE = 'Europe/Istanbul'
++
++# Language code for this installation. All choices can be found here:
++# http://www.i18nguy.com/unicode/language-identifiers.html
++LANGUAGE_CODE = 'en-us'
++
++SITE_ID = 1
++
++# If you set this to False, Django will make some optimizations so as not
++# to load the internationalization machinery.
++USE_I18N = True
++
++# If you set this to False, Django will not format dates, numbers and
++# calendars according to the current locale
++USE_L10N = True
++
++# Absolute filesystem path to the directory that will hold user-uploaded files.
++# Example: "/home/media/media.lawrence.com/media/"
++MEDIA_ROOT = '/home/pythonum/www/freedjangohosting/public/site_media/'
++
++# URL that handles the media served from MEDIA_ROOT. Make sure to use a
++# trailing slash.
++# Examples: "http://media.lawrence.com/media/", "http://example.com/media/"
++MEDIA_URL = '/site_media/'
++
++# Absolute path to the directory static files should be collected to.
++# Don't put anything in this directory yourself; store your static files
++# in apps' "static/" subdirectories and in STATICFILES_DIRS.
++# Example: "/home/media/media.lawrence.com/static/"
++STATIC_ROOT = ''
++
++# URL prefix for static files.
++# Example: "http://media.lawrence.com/static/"
++STATIC_URL = '/static/'
++
++# URL prefix for admin static files -- CSS, JavaScript and images.
++# Make sure to use a trailing slash.
++# Examples: "http://foo.com/static/admin/", "/static/admin/".
++ADMIN_MEDIA_PREFIX = '/admin_media/'
++
++# Additional locations of static files
++STATICFILES_DIRS = (
++    # Put strings here, like "/home/html/static" or "C:/www/django/static".
++    # Always use forward slashes, even on Windows.
++    # Don't forget to use absolute paths, not relative paths.
++)
++
++# List of finder classes that know how to find static files in
++# various locations.
++STATICFILES_FINDERS = (
++    'django.contrib.staticfiles.finders.FileSystemFinder',
++    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
++#    'django.contrib.staticfiles.finders.DefaultStorageFinder',
++)
++
++# Make this unique, and don't share it with anybody.
++SECRET_KEY = 'owa!*6xz%s61#k08s$bn3h4@w(^90ynw0r+%o(vlvb2)odx+$%'
++
++# List of callables that know how to import templates from various sources.
++TEMPLATE_LOADERS = (
++    'django.template.loaders.filesystem.Loader',
++    'django.template.loaders.app_directories.Loader',
++#     'django.template.loaders.eggs.Loader',
++)
++
++MIDDLEWARE_CLASSES = (
++    'django.middleware.common.CommonMiddleware',
++    'django.contrib.sessions.middleware.SessionMiddleware',
++    'django.middleware.csrf.CsrfViewMiddleware',
++    'django.contrib.auth.middleware.AuthenticationMiddleware',
++    'django.contrib.messages.middleware.MessageMiddleware',
++)
++
++ROOT_URLCONF = 'freedjangohosting.urls'
++
++TEMPLATE_DIRS = (
++    # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
++    # Always use forward slashes, even on Windows.
++    # Don't forget to use absolute paths, not relative paths.
++    '/home/pythonum/www/freedjangohosting/templates',
++)
++
++INSTALLED_APPS = (
++    'django.contrib.auth',
++    'django.contrib.contenttypes',
++    'django.contrib.sessions',
++    'django.contrib.sites',
++    'django.contrib.messages',
++    'django.contrib.staticfiles',
++    # Uncomment the next line to enable the admin:
++    'django.contrib.admin',
++    # Uncomment the next line to enable admin documentation:
++    'django.contrib.admindocs',
++    'app',
++    'disqus',
++    'django.contrib.sitemaps',
++)
++
++# A sample logging configuration. The only tangible logging
++# performed by this configuration is to send an email to
++# the site admins on every HTTP 500 error.
++# See http://docs.djangoproject.com/en/dev/topics/logging for
++# more details on how to customize your logging configuration.
++LOGGING = {
++    'version': 1,
++    'disable_existing_loggers': False,
++    'handlers': {
++        'mail_admins': {
++            'level': 'ERROR',
++            'class': 'django.utils.log.AdminEmailHandler'
++        }
++    },
++    'loggers': {
++        'django.request': {
++            'handlers': ['mail_admins'],
++            'level': 'ERROR',
++            'propagate': True,
++        },
++    }
++}
++
++DISQUS_API_KEY = 'NGQJyzQJPGGfWaIClZIO4pK9XOFDbBKQ8KhaJorotlVRAT3sIpKC1puquc5gpVSE'
++DISQUS_WEBSITE_SHORTNAME = 'freedjangohosting'
++
++TEMPLATE_CONTEXT_PROCESSORS = (
++    "django.core.context_processors.auth",
++    "django.core.context_processors.debug",
++    "django.core.context_processors.i18n",
++    "django.core.context_processors.media",
++    "django.core.context_processors.request",
++    "django.contrib.messages.context_processors.messages",
++)
++
++MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
+diff --git a/templates/app/feedback.html b/templates/app/feedback.html
+new file mode 100644
+index 0000000..69275f8
+--- /dev/null
++++ b/templates/app/feedback.html
+@@ -0,0 +1,197 @@
++{% load disqus_tags %}
++<?xml version="1.0" encoding="utf-8"?>
++<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" >
++<head>
++	<title>Free Django Hosting.</title>
++	<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
++	<meta name="description" content="Free Django Hosting." />
++	<meta name="keywords" content="Free Django Hosting." />
++	<meta name="robots" content="index, follow" />
++        <meta name="google-site-verification" content="i5mNefZhu-WmEP1hosmGxpykUCb7DZ8GYir89ujVxRg" />
++       <meta name="msvalidate.01" content="6B567E5786398855F516D4E0188B2D44" />
++	<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
++    <style media="screen" type="text/css">
++    /* <!-- */
++    /* General styles */
++    body {
++        margin:0;
++        padding:0;
++        border:0;			/* This removes the border around the viewport in old versions of IE */
++        width:100%;
++        background:#fff;
++        min-width:600px;    /* Minimum width of layout - remove line if not required */
++							/* The min-width property does not work in old versions of Internet Explorer */
++		font-size:90%;
++    }
++	a {
++    	color:#369;
++	}
++	a:hover {
++		color:#fff;
++		background:#369;
++		text-decoration:none;
++	}
++    h1, h2, h3 {
++        margin:.8em 0 .2em 0;
++        padding:0;
++    }
++    p {
++        margin:.4em 0 .8em 0;
++        padding:0;
++    }
++	img {
++		margin:10px 0 5px;
++	}
++	/* Header styles */
++    #header {
++        clear:both;
++        float:left;
++        width:100%;
++    }
++	#header {
++		border-bottom:1px solid #000;
++	}
++	#header p,
++	#header h1,
++	#header h2 {
++	    padding:.4em 15px 0 15px;
++        margin:0;
++	}
++	#header ul {
++	    clear:left;
++	    float:left;
++	    width:100%;
++	    list-style:none;
++	    margin:10px 0 0 0;
++	    padding:0;
++	}
++	#header ul li {
++	    display:inline;
++	    list-style:none;
++	    margin:0;
++	    padding:0;
++	}
++	#header ul li a {
++	    display:block;
++	    float:left;
++	    margin:0 0 0 1px;
++	    padding:3px 10px;
++	    text-align:center;
++	    background:#eee;
++	    color:#000;
++	    text-decoration:none;
++	    position:relative;
++	    left:15px;
++		line-height:1.3em;
++	}
++	#header ul li a:hover {
++	    background:#369;
++		color:#fff;
++	}
++	#header ul li a.active,
++	#header ul li a.active:hover {
++	    color:#fff;
++	    background:#000;
++	    font-weight:bold;
++	}
++	#header ul li a span {
++	    display:block;
++	}
++	/* 'widths' sub menu */
++	#layoutdims {
++		clear:both;
++		background:#eee;
++		border-top:4px solid #000;
++		margin:0;
++		padding:6px 15px !important;
++		text-align:right;
++	}
++	/* column container */
++	.colmask {
++		position:relative;		/* This fixes the IE7 overflow hidden bug and stops the layout jumping out of place */
++	    clear:both;
++	    float:left;
++        width:100%;			/* width of whole page */
++		overflow:hidden;	/* This chops off any overhanging divs */
++	}
++	/* 1 column full page settings */
++	.fullpage {
++	    background:#fff;
++	}
++	.fullpage .col1 {
++        margin:0 15px;
++	}
++	/* Footer styles */
++	#footer {
++        clear:both;
++        float:left;
++        width:100%;
++		border-top:1px solid #000;
++    }
++    #footer p {
++        padding:10px;
++        margin:0;
++    }
++    /* --> */
++    </style>
++</head>
++<body>
++
++<div id="header">
++    <h1><a href="/">Free Django Hosting</a></h1>
++    <h2>Free Python Django Web Hosts List</h2>
++    <h2>Best Django Web Hosting</h2>
++	<p id="layoutdims">
++<script type="text/javascript"><!--
++google_ad_client = "pub-6895353924362273";
++/* 728x90, oluþturulma 16.10.2011 */
++google_ad_slot = "9057895866";
++google_ad_width = 728;
++google_ad_height = 90;
++//-->
++</script>
++<script type="text/javascript"
++src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
++</script>
++
++
++</p>
++</div>
++<div class="colmask fullpage">
++    <div class="col1">
++        <!-- Column 1 start -->
++        <h2Free Django Hosting</h2>
++
++<h3>Send Feedback for {{host}}</h3>
++<form id="contact" action="." method="post" enctype="multipart/form-data">
++        {% include "form_snippet.html" %}
++        {% csrf_token %}
++        <div class="contactfield">
++        <input type="submit" name="Submit" id="sendit" value="Submit" class="submit" />
++        </div>
++</form>
++        <!-- Column 1 end -->
++    </div>
++</div>
++<div id="footer">
++    <p>Free Django Hosting.2011</p>
++</div>
++
++<script type="text/javascript">
++
++  var _gaq = _gaq || [];
++  _gaq.push(['_setAccount', 'UA-775425-12']);
++  _gaq.push(['_setDomainName', '.freedjangohosting.com']);
++  _gaq.push(['_trackPageview']);
++
++  (function() {
++    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
++    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
++    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
++  })();
++
++</script>
++
++</body>
++</html>
+diff --git a/templates/app/index.html b/templates/app/index.html
+new file mode 100644
+index 0000000..8b00784
+--- /dev/null
++++ b/templates/app/index.html
+@@ -0,0 +1,247 @@
++{% load disqus_tags %}
++<?xml version="1.0" encoding="utf-8"?>
++<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" >
++<head>
++	<title>Free Django Hosting.</title>
++	<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
++	<meta name="description" content="Free Django Hosting." />
++	<meta name="keywords" content="Free Django Hosting." />
++	<meta name="robots" content="index, follow" />
++        <meta name="google-site-verification" content="i5mNefZhu-WmEP1hosmGxpykUCb7DZ8GYir89ujVxRg" />
++       <meta name="msvalidate.01" content="6B567E5786398855F516D4E0188B2D44" />
++	<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
++    <style media="screen" type="text/css">
++    /* <!-- */
++    /* General styles */
++    body {
++        margin:0;
++        padding:0;
++        border:0;			/* This removes the border around the viewport in old versions of IE */
++        width:100%;
++        background:#fff;
++        min-width:600px;    /* Minimum width of layout - remove line if not required */
++							/* The min-width property does not work in old versions of Internet Explorer */
++		font-size:90%;
++    }
++	a {
++    	color:#369;
++	}
++	a:hover {
++		color:#fff;
++		background:#369;
++		text-decoration:none;
++	}
++    h1, h2, h3 {
++        margin:.8em 0 .2em 0;
++        padding:0;
++    }
++    p {
++        margin:.4em 0 .8em 0;
++        padding:0;
++    }
++	img {
++		margin:10px 0 5px;
++	}
++	/* Header styles */
++    #header {
++        clear:both;
++        float:left;
++        width:100%;
++    }
++	#header {
++		border-bottom:1px solid #000;
++	}
++	#header p,
++	#header h1,
++	#header h2 {
++	    padding:.4em 15px 0 15px;
++        margin:0;
++	}
++	#header ul {
++	    clear:left;
++	    float:left;
++	    width:100%;
++	    list-style:none;
++	    margin:10px 0 0 0;
++	    padding:0;
++	}
++	#header ul li {
++	    display:inline;
++	    list-style:none;
++	    margin:0;
++	    padding:0;
++	}
++	#header ul li a {
++	    display:block;
++	    float:left;
++	    margin:0 0 0 1px;
++	    padding:3px 10px;
++	    text-align:center;
++	    background:#eee;
++	    color:#000;
++	    text-decoration:none;
++	    position:relative;
++	    left:15px;
++		line-height:1.3em;
++	}
++	#header ul li a:hover {
++	    background:#369;
++		color:#fff;
++	}
++	#header ul li a.active,
++	#header ul li a.active:hover {
++	    color:#fff;
++	    background:#000;
++	    font-weight:bold;
++	}
++	#header ul li a span {
++	    display:block;
++	}
++	/* 'widths' sub menu */
++	#layoutdims {
++		clear:both;
++		background:#eee;
++		border-top:4px solid #000;
++		margin:0;
++		padding:6px 15px !important;
++		text-align:right;
++	}
++	/* column container */
++	.colmask {
++		position:relative;		/* This fixes the IE7 overflow hidden bug and stops the layout jumping out of place */
++	    clear:both;
++	    float:left;
++        width:100%;			/* width of whole page */
++		overflow:hidden;	/* This chops off any overhanging divs */
++	}
++	/* 1 column full page settings */
++	.fullpage {
++	    background:#fff;
++	}
++	.fullpage .col1 {
++        margin:0 15px;
++	}
++	/* Footer styles */
++	#footer {
++        clear:both;
++        float:left;
++        width:100%;
++		border-top:1px solid #000;
++    }
++    #footer p {
++        padding:10px;
++        margin:0;
++    }
++    /* --> */
++    </style>
++</head>
++<body>
++
++<div id="header">
++    <h1><a href="/">Free Django Hosting</a></h1>
++    <h2>Free Python Django Web Hosts List</h2>
++    <h2>Best Django Web Hosting</h2>
++
++        <ul>
++		<li><a href="{% url suggest_hosting %}">Suggest a New Django Hosting ! </a></li>
++	</ul>
++	<p id="layoutdims">
++<script type="text/javascript"><!--
++google_ad_client = "pub-6895353924362273";
++/* 728x90, oluþturulma 16.10.2011 */
++google_ad_slot = "9057895866";
++google_ad_width = 728;
++google_ad_height = 90;
++//-->
++</script>
++<script type="text/javascript"
++src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
++</script>
++
++
++</p>
++</div>
++<div class="colmask fullpage">
++    <div class="col1">
++        <!-- Column 1 start -->
++        <h2Free Django Hosting</h2>
++<h2>
++ {% if messages %}
++<ul class="messages">
++    {% for message in messages %}
++    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
++    {% endfor %}
++</ul>
++{% endif %}
++</h2>                
++{% disqus_show_comments %}
++
++
++<p>
++
++
++
++<script type="text/javascript"><!--
++google_ad_client = "pub-6895353924362273";
++/* 300x250, oluþturulma 19.10.2011 */
++google_ad_slot = "0666408423";
++google_ad_width = 300;
++google_ad_height = 250;
++//-->
++</script>
++<script type="text/javascript"
++src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
++</script>
++
++</p>
++
++
++
++
++                 {% for host in hosts %}
++                 <h2>
++                 {{host.name}}
++                 {% if  host.logo %}
++                 <img src="/site_media/{{host.logo}}" title="{{host}}" alt="{{host}}" width="254" height="62"/>
++                 {% endif %}
++                 </h2>
++                 <ul>
++                        <h3>{{ host.num_of_users}}</h3> people clicked i use this button for this hosting
++                        <li><a href="{% url iusethis host.id %}">
++                i use this
++                 </a><img src="/site_media/icons/thumb_up.png" width="16" height="16" alt="i use this django hosting" title="i use this hosting"/></li>
++                        <li>{{host.type|lower|capfirst}}</li>
++                        <li>{{host.description|safe}}</li>
++                        <li><a href="{{host.website}}" target="_blank" title="{{host.name}}">{{host.website}}</a></li>
++                        <li><a href="{% url feedback host.id %}" title="write feedback about {{host.name}}">Write Feedback </a>
++                        <img src="/site_media/icons/comment_add.png" width="16" height="16" alt="send feedback about {{host}}" title="send feedback about django host {{host}}"/></li>
++                 </ul>
++                 {% endfor %}
++
++        <!-- Column 1 end -->
++    </div>
++</div>
++<div id="footer">
++    <p>Free Django Hosting.2011</p>
++</div>
++
++<script type="text/javascript">
++
++  var _gaq = _gaq || [];
++  _gaq.push(['_setAccount', 'UA-775425-12']);
++  _gaq.push(['_setDomainName', '.freedjangohosting.com']);
++  _gaq.push(['_trackPageview']);
++
++  (function() {
++    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
++    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
++    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
++  })();
++
++</script>
++
++<a href="http://www.onewaytextlink.com">Web Directories</a>
++
++</body>
++</html>
+diff --git a/templates/app/suggest_hosting.html b/templates/app/suggest_hosting.html
+new file mode 100644
+index 0000000..a7ff1ac
+--- /dev/null
++++ b/templates/app/suggest_hosting.html
+@@ -0,0 +1,195 @@
++{% load disqus_tags %}
++<?xml version="1.0" encoding="utf-8"?>
++<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
++<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" >
++<head>
++	<title>Free Django Hosting.</title>
++	<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
++	<meta name="description" content="Free Django Hosting." />
++	<meta name="keywords" content="Free Django Hosting." />
++	<meta name="robots" content="index, follow" />
++        <meta name="google-site-verification" content="i5mNefZhu-WmEP1hosmGxpykUCb7DZ8GYir89ujVxRg" />
++       <meta name="msvalidate.01" content="6B567E5786398855F516D4E0188B2D44" />
++	<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
++    <style media="screen" type="text/css">
++    /* <!-- */
++    /* General styles */
++    body {
++        margin:0;
++        padding:0;
++        border:0;			/* This removes the border around the viewport in old versions of IE */
++        width:100%;
++        background:#fff;
++        min-width:600px;    /* Minimum width of layout - remove line if not required */
++							/* The min-width property does not work in old versions of Internet Explorer */
++		font-size:90%;
++    }
++	a {
++    	color:#369;
++	}
++	a:hover {
++		color:#fff;
++		background:#369;
++		text-decoration:none;
++	}
++    h1, h2, h3 {
++        margin:.8em 0 .2em 0;
++        padding:0;
++    }
++    p {
++        margin:.4em 0 .8em 0;
++        padding:0;
++    }
++	img {
++		margin:10px 0 5px;
++	}
++	/* Header styles */
++    #header {
++        clear:both;
++        float:left;
++        width:100%;
++    }
++	#header {
++		border-bottom:1px solid #000;
++	}
++	#header p,
++	#header h1,
++	#header h2 {
++	    padding:.4em 15px 0 15px;
++        margin:0;
++	}
++	#header ul {
++	    clear:left;
++	    float:left;
++	    width:100%;
++	    list-style:none;
++	    margin:10px 0 0 0;
++	    padding:0;
++	}
++	#header ul li {
++	    display:inline;
++	    list-style:none;
++	    margin:0;
++	    padding:0;
++	}
++	#header ul li a {
++	    display:block;
++	    float:left;
++	    margin:0 0 0 1px;
++	    padding:3px 10px;
++	    text-align:center;
++	    background:#eee;
++	    color:#000;
++	    text-decoration:none;
++	    position:relative;
++	    left:15px;
++		line-height:1.3em;
++	}
++	#header ul li a:hover {
++	    background:#369;
++		color:#fff;
++	}
++	#header ul li a.active,
++	#header ul li a.active:hover {
++	    color:#fff;
++	    background:#000;
++	    font-weight:bold;
++	}
++	#header ul li a span {
++	    display:block;
++	}
++	/* 'widths' sub menu */
++	#layoutdims {
++		clear:both;
++		background:#eee;
++		border-top:4px solid #000;
++		margin:0;
++		padding:6px 15px !important;
++		text-align:right;
++	}
++	/* column container */
++	.colmask {
++		position:relative;		/* This fixes the IE7 overflow hidden bug and stops the layout jumping out of place */
++	    clear:both;
++	    float:left;
++        width:100%;			/* width of whole page */
++		overflow:hidden;	/* This chops off any overhanging divs */
++	}
++	/* 1 column full page settings */
++	.fullpage {
++	    background:#fff;
++	}
++	.fullpage .col1 {
++        margin:0 15px;
++	}
++	/* Footer styles */
++	#footer {
++        clear:both;
++        float:left;
++        width:100%;
++		border-top:1px solid #000;
++    }
++    #footer p {
++        padding:10px;
++        margin:0;
++    }
++    /* --> */
++    </style>
++</head>
++<body>
++
++<div id="header">
++    <h1><a href="/">Free Django Hosting</a></h1>
++    <h2>Free Python Django Web Hosts List</h2>
++    <h2>Best Django Web Hosting</h2>
++	<p id="layoutdims">
++<script type="text/javascript"><!--
++google_ad_client = "pub-6895353924362273";
++/* 728x90, oluþturulma 16.10.2011 */
++google_ad_slot = "9057895866";
++google_ad_width = 728;
++google_ad_height = 90;
++//-->
++</script>
++<script type="text/javascript"
++src="http://pagead2.googlesyndication.com/pagead/show_ads.js">
++</script>
++
++
++</p>
++</div>
++<div class="colmask fullpage">
++    <div class="col1">
++        <!-- Column 1 start -->
++        <h2Free Django Hosting</h2>
++
++<h3>Suggest Django Hosting</h3>
++<form id="contact" action="." method="post" enctype="multipart/form-data">
++        {% include "form_snippet.html" %}
++        {% csrf_token %}
++        <input type="submit" name="Submit" id="sendit" value="Submit" class="submit" />
++</form>
++        <!-- Column 1 end -->
++    </div>
++</div>
++<div id="footer">
++    <p>Free Django Hosting.2011</p>
++</div>
++
++<script type="text/javascript">
++
++  var _gaq = _gaq || [];
++  _gaq.push(['_setAccount', 'UA-775425-12']);
++  _gaq.push(['_setDomainName', '.freedjangohosting.com']);
++  _gaq.push(['_trackPageview']);
++
++  (function() {
++    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
++    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
++    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
++  })();
++
++</script>
++
++</body>
++</html>
+diff --git a/templates/form_snippet.html b/templates/form_snippet.html
+new file mode 100644
+index 0000000..f36bbd2
+--- /dev/null
++++ b/templates/form_snippet.html
+@@ -0,0 +1,12 @@
++{% for field in form %}
++
++	<div class="contactfield"><label for="name">{{ field.label_tag }}</label>
++<div class="clear"></div>
++	{{ field }} {% if field.help_text %}{{ field.help_text }}{% endif %}
++<div class="clear"></div>
++	</div>
++<div class="clear"></div>
++{% if field.errors %}{{ field.errors }}{% endif %}
++
++<div class="clear"></div>
++{% endfor %}
+diff --git a/templates/robots.txt b/templates/robots.txt
+new file mode 100644
+index 0000000..25781b7
+--- /dev/null
++++ b/templates/robots.txt
+@@ -0,0 +1,2 @@
++User-Agent: *
++Disallow: 
+diff --git a/urls.py b/urls.py
+new file mode 100644
+index 0000000..0de1132
+--- /dev/null
++++ b/urls.py
+@@ -0,0 +1,28 @@
++from django.conf.urls.defaults import patterns, include, url
++
++from django.views.generic.simple import direct_to_template
++
++# Uncomment the next two lines to enable the admin:
++from django.contrib import admin
++admin.autodiscover()
++
++
++
++urlpatterns = patterns('',
++    # Examples:
++    # url(r'^$', 'freedjangohosting.views.home', name='home'),
++    # url(r'^freedjangohosting/', include('freedjangohosting.foo.urls')),
++
++    # Uncomment the admin/doc line below to enable admin documentation:
++      url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
++
++    # Uncomment the next line to enable the admin:
++      url(r'^admin/', include(admin.site.urls)),
++ 
++      url(r'^$', 'app.views.index', name='index'),
++      url(r'^iusethis/(?P<host_id>\d+)/$', 'app.views.iusethis', name='iusethis'),
++      url(r'^feedback/(?P<host_id>\d+)/$', 'app.views.feedback', name='feedback'),
++      url(r'^suggest/$', 'app.views.suggest_hosting', name='suggest_hosting'),
++
++      (r'^robots\.txt$', direct_to_template,{'template': 'robots.txt', 'mimetype': 'text/plain'}),
++)
+-- 
+1.7.5.4
+
